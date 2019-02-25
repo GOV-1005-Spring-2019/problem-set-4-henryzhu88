@@ -32,6 +32,38 @@ bind_cols(reptime,demtime)%>%
   mutate(diffpartytime= interval(timestamp1,timestamp))%>%select(diffpartytime)%>% 
   mutate(diffpartytime_m = diffpartytime %/% minutes(1))
 ```
+
+  
+```{r, include=TRUE, echo=FALSE,results="asis"}
+nc_poll %>%
+  select(response,race_eth, final_weight) %>%
+  mutate(race_eth = fct_relevel(race_eth, "White", "Black", 
+                                "Hispanic", "Asian", "Other"))%>%
+  group_by(race_eth,response)%>%
+  filter(!race_eth=="[DO NOT READ] Don't know/Refused")%>%
+  summarize(total = sum(final_weight))%>%
+  spread(key =  response, value = total,fill=0)%>%
+  mutate(all = Dem + Rep + Und +`3`) %>% 
+  mutate(Dem = Dem / all) %>% 
+  mutate(Rep = Rep / all) %>% 
+  mutate(Und = Und / all)%>%
+  select(-all,-`3`)%>%
+  ungroup()%>%
+gt() %>% 
+    tab_header(
+      title = "Title") %>% 
+    
+    cols_label(
+      race_eth = "Race",
+      Dem = "DEM.",
+      Rep = "REP.",
+      Und = "UND."
+      ) %>%
+  
+    fmt_percent(columns = vars(Dem, Rep, Und),
+                decimals = 0) %>% 
+    as_raw_html() %>% as.character() %>% cat()
+```
 There were `r nrow(dem)` respondents who supported the Democratic candidate.
 
 There were `r (nrow(rep)-nrow(und))` more respondents who favored the Republican candidate than who were Undecided.
