@@ -16,6 +16,7 @@ library(devtools)
 library(tidyverse)
 library(readr)
 library(janitor)
+library(lubridate)
 nc_poll<- read_csv("ps_4_elections-poll-nc09-3.csv")%>% clean_names()
 dem<- nc_poll%>%
   filter(response=="Dem")
@@ -25,6 +26,11 @@ und<- nc_poll%>%
   filter(response=="Und")
 gendiff<-nc_poll%>% filter(gender!= gender_combined)
 whitediff <-nc_poll%>%select(race_eth, file_race_black)%>%filter(race_eth=="White",race_eth!=file_race_black)
+reptime<-nc_poll%>%select(response,timestamp)%>%filter(response=="Rep")%>%head(n=1)
+demtime<-nc_poll%>%select(response,timestamp)%>%filter(response=="Dem")%>%head(n=1)
+bind_cols(reptime,demtime)%>%
+  mutate(diffpartytime= interval(timestamp1,timestamp))%>%select(diffpartytime)%>% 
+  mutate(diffpartytime_m = diffpartytime %/% minutes(1))
 ```
 There were `r nrow(dem)` respondents who supported the Democratic candidate.
 
@@ -33,3 +39,7 @@ There were `r (nrow(rep)-nrow(und))` more respondents who favored the Republican
 There are two gender variables (gender and gender_combined). There are `r nrow(gendiff)` individuals for whom these variables have different values.
 
 There are `r nrow(whitediff)` respondents listed as “White” under race_eth who are not listed as “White” under file_race_black.
+
+The first response of Rep came `r bind_cols(reptime,demtime)%>%
+  mutate(diffpartytime= interval(timestamp1,timestamp))%>%
+  mutate(diffpartytime_m = diffpartytime %/% minutes(1))%>%select(diffpartytime_m)` minutes (rounded to the nearest minute) before the first response of Dem.
