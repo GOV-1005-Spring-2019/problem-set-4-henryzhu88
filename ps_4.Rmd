@@ -24,6 +24,7 @@ rep<- nc_poll%>%
 und<- nc_poll%>%
   filter(response=="Und")
 gendiff<-nc_poll%>% filter(gender!= gender_combined)
+whitediff <-nc_poll%>%select(race_eth, file_race_black)%>%filter(race_eth=="White",race_eth!=file_race_black)
 ```
 There were `r nrow(dem)` respondents who supported the Democratic candidate.
 
@@ -31,3 +32,4 @@ There were `r (nrow(rep)-nrow(und))` more respondents who favored the Republican
 
 There are two gender variables (gender and gender_combined). There are `r nrow(gendiff)` individuals for whom these variables have different values.
 
+There are `r nrow(whitediff)` respondents listed as “White” under race_eth who are not listed as “White” under file_race_black.
