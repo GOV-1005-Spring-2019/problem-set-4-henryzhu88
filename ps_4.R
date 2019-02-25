@@ -5,6 +5,7 @@ library(readr)
 library(janitor)
 library(dplyr)
 library(lubridate)
+library(knitr)
 nc_poll<- read_csv("ps_4_elections-poll-nc09-3.csv")%>% clean_names()%>%
   col_types = cols(
     .default = col_character(),
@@ -13,7 +14,7 @@ nc_poll<- read_csv("ps_4_elections-poll-nc09-3.csv")%>% clean_names()%>%
     w_LV = col_double(),
     w_RV = col_double(),
     final_weight = col_double(),
-    timestamp = col_datetime(format = "")),
+    timestamp = col_datetime(format = "")) %>%
 cols_label(
   race_eth = "Race",
   Dem = "DEM.",
@@ -36,18 +37,36 @@ reptime<-nc_poll%>%select(response,timestamp)%>%filter(response=="Rep")%>%head(n
 reptime
 demtime<-nc_poll%>%select(response,timestamp)%>%filter(response=="Dem")%>%head(n=1)
 demtime
-nc_poll%>%mutate(diffpartytime= interval(reptime,demtime))
+bind_cols(reptime,demtime)%>%
+  mutate(diffpartytime= interval(timestamp1,timestamp))%>%
+  mutate(diffpartytime_m = diffpartytime %/% minutes(1))%>%select(diffpartytime_m)
 
 
 nc_poll%>%
   select(response,race_eth, final_weight)%>%
+  mutate(race_eth = fct_relevel(race_eth, "White", "Black", 
+                                "Hispanic", "Asian", "Other"))%>%
   group_by(race_eth,response)%>%
-  filter(response!="3", !race_eth=="[DO NOT READ] Don't know/Refused")%>%
+  filter(!race_eth=="[DO NOT READ] Don't know/Refused")%>%
   summarize(total = sum(final_weight))%>%
-  spread(key =  response, value = total)%>%
-  mutate(all = Dem + Rep + Und) %>% 
+  spread(key =  response, value = total,fill=0)%>%
+  mutate(all = Dem + Rep + Und +`3`) %>% 
   mutate(Dem = Dem / all) %>% 
   mutate(Rep = Rep / all) %>% 
   mutate(Und = Und / all)%>%
-  select(-all)%>%
+  select(-all,-`3`)%>%
   ungroup()
+
+educ_weight <- nc_poll %>% 
+  mutate(educ = fct_relevel(educ,"Grade school","High school","Some college or trade school","Bachelors' degree", "Graduate or Professional Degree")) %>% 
+  filter(!educ=="[DO NOT READ] Refused")%>%
+  select(educ,final_weight) %>%
+ggplot(aes(x =educ, y = final_weight)) + 
+  geom_violin()+
+  geom_jitter(width = 0.05,alpha=0.3)+ 
+  coord_flip()+
+  labs(title = "More Educated Matters Less in North Carolina 9th",
+       subtitle = "Poll gives more weight to people who are less likely to participate in polls",
+       caption = "Source: New York Times Upshot/Siena College 2018 live polls") +
+  xlab(NULL) +
+  ylab("Weight Given to Respondent in Calculating Poll Results") 
