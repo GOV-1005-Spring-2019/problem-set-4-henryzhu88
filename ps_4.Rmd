@@ -1,0 +1,24 @@
+---
+title: "ps_4"
+author: "Henry Zhu"
+date: "February 25, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, include=FALSE}
+library(gt)
+library(devtools)
+library(tidyverse)
+library(readr)
+library(janitor)
+nc_poll<- read_csv("ps_4_elections-poll-nc09-3.csv")%>% clean_names()
+dem<- nc_poll%>%
+  filter(response=="Dem")
+count(dem)
+```
+There were `r nrow(dem)` respondents who supported the Democratic candidate.
