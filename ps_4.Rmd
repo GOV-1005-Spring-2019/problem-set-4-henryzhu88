@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
+#Question 1
 ```{r, include=FALSE}
 library(gt)
 library(devtools)
@@ -18,17 +18,24 @@ library(readr)
 library(janitor)
 library(lubridate)
 library(knitr)
+#Through janitor and readr, I was able to organize csv data into a readable format and begin to parse through data
 nc_poll<- read_csv("ps_4_elections-poll-nc09-3.csv")%>%clean_names()
+#ML1-Since each row was one respondent, filtering to only the rows that had a Dem response allowed me them to count the number of remaining rows to see how many people supported Democratic candidate through nrow(), showed below in inline code
 dem<- nc_poll%>%
   filter(response=="Dem")
+#followed a similar procedure for ML2- after filtering for Rep and Und, I took the difference of the nrow()s to count how many more responses were Republican compared to Undecided
 rep<- nc_poll%>%
   filter(response=="Rep")
 und<- nc_poll%>%
   filter(response=="Und")
+#For ML3, I used the != function to determine how many rows existed in which the two gender variables did not match and then counted the rows through nrow() in inline code
 gendiff<-nc_poll%>% filter(gender!= gender_combined)
+#In ML4, a similar process of != was use to determine how many people who were listed as White in race_eth was not in file_race_black. Filtering for "White" first allowed for only those rows to be shown in the race_eth column
 whitediff <-nc_poll%>%select(race_eth, file_race_black)%>%filter(race_eth=="White",race_eth!=file_race_black)
+#In ML5, I made two new variables, reptime and demtime that had just one value, the earliest response time. This was accomplished through filtering for each party and then using the head(n=1) function.
 reptime<-nc_poll%>%select(response,timestamp)%>%filter(response=="Rep")%>%head(n=1)
 demtime<-nc_poll%>%select(response,timestamp)%>%filter(response=="Dem")%>%head(n=1)
+#After the two earliest times were found, I then joined the two variables through bind_cols and found the interval separating the two different timestamps, calling it diffpartytime. Through using the %/% minutes(1) function, I was able to convert their standard ymd to a readable minutes form.
 bind_cols(reptime,demtime)%>%
   mutate(diffpartytime= interval(timestamp1,timestamp))%>%select(diffpartytime)%>% 
   mutate(diffpartytime_m = diffpartytime %/% minutes(1))
@@ -44,22 +51,32 @@ There are `r nrow(whitediff)` respondents listed as “White” under race_eth w
 The first response of Dem came `r bind_cols(reptime,demtime)%>%
   mutate(diffpartytime= interval(timestamp1,timestamp))%>%
   mutate(diffpartytime_m = diffpartytime %/% minutes(1))%>%select(diffpartytime_m)` minutes (rounded to the nearest minute) before the first response of Rep.
-  
+
+#Question 2  
 ```{r, include=TRUE, echo=FALSE,results="asis"}
 nc_poll %>%
   select(response,race_eth, final_weight) %>%
+  #to reorder the race categories in the desired order, mutate and fct_relevel was used, this did not affect the actual values of race_eth
   mutate(race_eth = fct_relevel(race_eth, "White", "Black", 
                                 "Hispanic", "Asian", "Other"))%>%
   group_by(race_eth,response)%>%
+#respondents who did not give a race were not included in the chart, so they were removed from the dataset
   filter(!race_eth=="[DO NOT READ] Don't know/Refused")%>%
+#to account for differences in proportions of each race, the total variable accumulates each weight given to the response type
   summarize(total = sum(final_weight))%>%
+#party is redistributed along the columns side, while the value accomodates for the weighted percentages of each race in accordance to their proportional voting totals
+#because asian and Hispanic have NA values, the processor thinks that it is adding up a NULL value and will make  the total value NULL, thus generating many NAs. Instead, fill=0 ensures it is adding 0 which preserves the numerical consistency of the values
   spread(key =  response, value = total,fill=0)%>%
+#The model chart does not actually add up to 100 percent, because it leaves out third party(`3`) values. However, when calculating percentages, we must still include third party values so the all function accounts for all four potential choices that voters had
+#mutate functions account for representation of percentages rather than constant values
   mutate(all = Dem + Rep + Und +`3`) %>% 
   mutate(Dem = Dem / all) %>% 
   mutate(Rep = Rep / all) %>% 
   mutate(Und = Und / all)%>%
+#select and ungroup allows for the desired 5x3 graph with accurate percentages
   select(-all,-`3`)%>%
   ungroup()%>%
+#gt function allows for more visually appealing stylistic additions to the chart, in accordance with title, subtitle, column labels
 gt() %>% 
     tab_header(
       title = "Party Choice by Race", subtitle= "Third Wave, North Carolina’s 9th Congressional District, 2018") %>% 
@@ -71,44 +88,61 @@ gt() %>%
       Rep = "REP.",
       Und = "UND."
       ) %>%
-  
+#chart does not include decimal places after percentages, and represents each value as a charater
     fmt_percent(columns = vars(Dem, Rep, Und),
                 decimals = 0) %>% 
     as_raw_html() %>% as.character() %>% cat()
 ```
 
+#Question 3
 ```{r, include=TRUE, echo=FALSE}
 educ_weight <- nc_poll %>% 
-  mutate(educ = fct_relevel(educ,"Grade school","High school","Some college or trade school","Bachelors' degree", "Graduate or Professional Degree")) %>% 
+#like last problem, the different input values need to be adjusted to organize from top-down Grad/Professional Degree-> Grade School
+  mutate(educ = fct_relevel(educ,"Grade school","High school","Some college or trade school","Bachelors' degree", "Graduate or Professional Degree")) %>%
+#eliminates those who refused to provide education level
   filter(!educ=="[DO NOT READ] Refused")%>%
   select(educ,final_weight) %>%
 ggplot(aes(x =educ, y = final_weight)) + 
+#violin graph splits up the different education levels into its own groupings, almost like a facet-wrap but condensed onto one graph
   geom_violin()+
-  geom_jitter(size=0.9, width=0.2, alpha=0.4)+ 
+#jitter function allows for adjustments to size,width, height, and alpha(opacity), with minor changes to get my chart to match to best of ability
+  geom_jitter(size=0.9, width=0.2, alpha=0.4)+
+#only with coord_flip would geom_violin show on the chart, otherwise it would just be a straight line
   coord_flip()+
+#titles given, matching model graph
   labs(title = "More Educated Matters Less in North Carolina 9th",
        subtitle = "Poll gives more weight to people who are less likely to participate in polls",
        caption = "Source: New York Times Upshot/Siena College 2018 live polls") +
+#axis labels added but accounting for coord_flip so still at original x-y configuration
   xlab(NULL) +
   ylab("Weight Given to Respondent in Calculating Poll Results")
 educ_weight
 ```
 
+#Question 4
 ```{r, include=TRUE, echo=FALSE}
+#For this chart, I wanted to create a representation of phone type used to respond to poll,taken across various ages. Although faceting would work here for each age category, I thought the best representation would be include all the data on one graph and to color-code cell phone vs. landline. A bar chart worked the best, and I decided to create a numerical measure through finding the percentage of cell phone/landline users to total respondents for each age category.
 agephone<- nc_poll%>% 
+  #my desired variables were age(through ager) and phone_type, fct_relevel allowed for reorganization according to increasing age
   mutate(ager = fct_relevel(ager, "18 to 34", "35 to 49", 
                                 "50 to 64", "65 and older"))%>%
   select(ager,phone_type)%>%
   group_by(ager,phone_type)%>% 
+#eliminated respondents who refused to give age
   filter(!ager=="[DO NOT READ] Refused")%>%
+#Create new variable N to represent count of total respondents and then found the frequency and percentage of each respondent according to independent variable(phone_type), rounded to 2 decimal places and converted into a percentage 
   summarize(N = n()) %>%
   mutate(freq = N / sum(N),
          pct = round((freq*100), 2))%>%
+#Made bar chart using some hints from the textbook(i.e. dodge2), filling it by phone type to differentiate the two columns in each age category
+#chose pct over N or freq because it provided the most compelling visual look at a decrease in cell phone use as age increases
   ggplot(aes(x = ager, y = pct, fill = phone_type))+
   geom_col(position = "dodge2") +
-  labs(x = "Age",y = "Percentage of Respondents", title = "Poll Respondent Phone Type in NC 9th, by Age ",
+#devised the below axis/title labels to represent findings, used fill="" to leave out phone_type from appearing since the two color codes were self-explanatory with "Cell" and "Landline"
+  labs(x = "Age",y = "Percentage of Respondents", fill="", title = "Poll Respondent Phone Type in NC 9th, by Age ",
        subtitle = "A higher proportion of older respondents answered through landlines",
        caption = "Source: New York Times Upshot/Siena College 2018 live polls") +
+#included legend at the top to differentiate between two phone_types  
   theme(legend.position = "top")
 agephone
 ```
