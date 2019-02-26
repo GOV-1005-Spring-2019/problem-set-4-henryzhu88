@@ -17,6 +17,7 @@ library(tidyverse)
 library(readr)
 library(janitor)
 library(lubridate)
+library(knitr)
 nc_poll<- read_csv("ps_4_elections-poll-nc09-3.csv")%>%clean_names()
 dem<- nc_poll%>%
   filter(response=="Dem")
@@ -40,9 +41,9 @@ There are two gender variables (gender and gender_combined). There are `r nrow(g
 
 There are `r nrow(whitediff)` respondents listed as “White” under race_eth who are not listed as “White” under file_race_black.
 
-The first response of Rep came `r bind_cols(reptime,demtime)%>%
+The first response of Dem came `r bind_cols(reptime,demtime)%>%
   mutate(diffpartytime= interval(timestamp1,timestamp))%>%
-  mutate(diffpartytime_m = diffpartytime %/% minutes(1))%>%select(diffpartytime_m)` minutes (rounded to the nearest minute) before the first response of Dem.
+  mutate(diffpartytime_m = diffpartytime %/% minutes(1))%>%select(diffpartytime_m)` minutes (rounded to the nearest minute) before the first response of Rep.
   
 ```{r, include=TRUE, echo=FALSE,results="asis"}
 nc_poll %>%
@@ -76,3 +77,38 @@ gt() %>%
     as_raw_html() %>% as.character() %>% cat()
 ```
 
+```{r, include=TRUE, echo=FALSE}
+educ_weight <- nc_poll %>% 
+  mutate(educ = fct_relevel(educ,"Grade school","High school","Some college or trade school","Bachelors' degree", "Graduate or Professional Degree")) %>% 
+  filter(!educ=="[DO NOT READ] Refused")%>%
+  select(educ,final_weight) %>%
+ggplot(aes(x =educ, y = final_weight)) + 
+  geom_violin()+
+  geom_jitter(size=0.9, width=0.2, alpha=0.4)+ 
+  coord_flip()+
+  labs(title = "More Educated Matters Less in North Carolina 9th",
+       subtitle = "Poll gives more weight to people who are less likely to participate in polls",
+       caption = "Source: New York Times Upshot/Siena College 2018 live polls") +
+  xlab(NULL) +
+  ylab("Weight Given to Respondent in Calculating Poll Results")
+educ_weight
+```
+
+```{r, include=TRUE, echo=FALSE}
+agephone<- nc_poll%>% 
+  mutate(ager = fct_relevel(ager, "18 to 34", "35 to 49", 
+                                "50 to 64", "65 and older"))%>%
+  select(ager,phone_type)%>%
+  group_by(ager,phone_type)%>% 
+  filter(!ager=="[DO NOT READ] Refused")%>%
+  summarize(N = n()) %>%
+  mutate(freq = N / sum(N),
+         pct = round((freq*100), 2))%>%
+  ggplot(aes(x = ager, y = pct, fill = phone_type))+
+  geom_col(position = "dodge2") +
+  labs(x = "Age",y = "Percentage of Respondents", title = "Poll Respondent Phone Type in NC 9th, by Age ",
+       subtitle = "A higher proportion of older respondents answered through landlines",
+       caption = "Source: New York Times Upshot/Siena College 2018 live polls") +
+  theme(legend.position = "top")
+agephone
+```

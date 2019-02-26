@@ -69,4 +69,30 @@ ggplot(aes(x =educ, y = final_weight)) +
        subtitle = "Poll gives more weight to people who are less likely to participate in polls",
        caption = "Source: New York Times Upshot/Siena College 2018 live polls") +
   xlab(NULL) +
-  ylab("Weight Given to Respondent in Calculating Poll Results") 
+  ylab("Weight Given to Respondent in Calculating Poll Results")
+
+agephone<- nc_poll%>% 
+  mutate(ager = fct_relevel(ager, "18 to 34", "35 to 49", 
+                                "50 to 64", "65 and older"))%>%
+  select(ager,phone_type,response)%>%
+  group_by(ager,phone_type,response)%>% 
+  filter(!ager=="[DO NOT READ] Refused")%>%
+  summarize(N=n())%>%
+  spread(key =  ager, value = N,fill=0)%>%
+  ggplot(aes(x = ager, y = N, fill = response))+
+  geom_col(position = "dodge2") +
+  labs(x = "Age",y = "Number", fill = "Party") +
+  theme(legend.position = "top")
+  
+  ggplot(aes(x = "N", y = "ager"))+
+  geom_point()
+  
+  mutate(all = Dem + Rep + Und +`3`) %>%
+  +
+  facet_wrap(~ phone_type)
+
++
+  summarize(N = n()) %>%
+  mutate(freq = N / sum(N),
+         pct = round((freq*100), 2))%>%
+  
